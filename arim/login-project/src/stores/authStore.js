@@ -2,13 +2,16 @@
 
 import { create } from 'zustand';
 
-export const useAuthStore = create((set) => ({
+export const useAuthStore = create((set, get) => ({
+  // get을 추가합니다.
   isLoggedIn: false,
   user: null,
   error: null,
-  successMessage: null, // 성공 메시지 상태 추가
+  successMessage: null,
 
-  // 메시지 초기화 함수
+  // 현재 비밀번호를 저장할 상태를 추가합니다.
+  currentPassword: null,
+
   clearMessages: () => set({ error: null, successMessage: null }),
 
   login: async (username, password) => {
@@ -19,28 +22,35 @@ export const useAuthStore = create((set) => ({
       set({ error: '아이디와 비밀번호를 모두 입력해주세요.' });
       return false;
     }
-
-    if (password.length < 6) {
-      set({ error: '비밀번호는 최소 6자 이상이어야 합니다.' });
+    if (password.length < 6 || !/\d/.test(password)) {
+      set({ error: '비밀번호는 6자 이상이며 숫자를 포함해야 합니다.' });
       return false;
     }
 
-    if (!/\d/.test(password)) {
-      set({ error: '비밀번호에는 최소 한 개의 숫자가 포함되어야 합니다.' });
-      return false;
-    }
-
-    set({ isLoggedIn: true, user: { username }, error: null });
+    // 로그인 성공 시, 입력한 비밀번호를 상태에 저장합니다.
+    set({
+      isLoggedIn: true,
+      user: { username },
+      error: null,
+      currentPassword: password,
+    });
     return true;
   },
 
-  logout: () => set({ isLoggedIn: false, user: null, error: null }),
+  logout: () =>
+    set({ isLoggedIn: false, user: null, error: null, currentPassword: null }),
 
-  changePassword: async (currentPassword, newPassword, confirmPassword) => {
+  changePassword: async (enteredPassword, newPassword, confirmPassword) => {
     set({ error: null, successMessage: null });
     await new Promise((r) => setTimeout(r, 500));
 
-    if (!currentPassword || !newPassword || !confirmPassword) {
+    // 👇 현재 비밀번호가 맞는지 확인하는 로직을 추가합니다.
+    if (enteredPassword !== get().currentPassword) {
+      set({ error: '현재 비밀번호가 일치하지 않습니다.' });
+      return false;
+    }
+
+    if (!enteredPassword || !newPassword || !confirmPassword) {
       set({ error: '모든 필드를 입력해주세요.' });
       return false;
     }
@@ -53,7 +63,11 @@ export const useAuthStore = create((set) => ({
       return false;
     }
 
-    set({ successMessage: '비밀번호가 성공적으로 변경되었습니다.' });
+    // 비밀번호 변경 성공 시, 저장된 비밀번호도 새 값으로 업데이트합니다.
+    set({
+      successMessage: '비밀번호가 성공적으로 변경되었습니다.',
+      currentPassword: newPassword,
+    });
     return true;
   },
 }));
